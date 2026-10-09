@@ -1,0 +1,429 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Service Health</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --surface: #ffffff;
+    --surface-2: #f1f3f6;
+    --border: #e3e7ed;
+    --text: #0f172a;
+    --muted: #64748b;
+    --accent: #ff9900;
+    --ok: #16a34a;
+    --ok-soft: rgba(22, 163, 74, .10);
+    --warn: #d97706;
+    --warn-soft: rgba(217, 119, 6, .12);
+    --down: #dc2626;
+    --down-soft: rgba(220, 38, 38, .10);
+    --chart: #2563eb;
+    --shadow: 0 1px 2px rgba(15, 23, 42, .04), 0 8px 24px rgba(15, 23, 42, .05);
+    --radius: 14px;
+    --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0b0f17; --surface: #111827; --surface-2: #172033; --border: #232d41;
+      --text: #e7ebf3; --muted: #8b97ad;
+      --ok: #22c55e; --ok-soft: rgba(34, 197, 94, .13);
+      --warn: #f59e0b; --warn-soft: rgba(245, 158, 11, .15);
+      --down: #f05252; --down-soft: rgba(240, 82, 82, .14);
+      --chart: #60a5fa;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .3);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0b0f17; --surface: #111827; --surface-2: #172033; --border: #232d41;
+    --text: #e7ebf3; --muted: #8b97ad;
+    --ok: #22c55e; --ok-soft: rgba(34, 197, 94, .13);
+    --warn: #f59e0b; --warn-soft: rgba(245, 158, 11, .15);
+    --down: #f05252; --down-soft: rgba(240, 82, 82, .14);
+    --chart: #60a5fa;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .3);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font: 15px/1.5 Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 36px 16px 48px; }
+
+  header { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; justify-content: space-between; }
+  .eyebrow { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+  .eyebrow .aws { width: 8px; height: 8px; border-radius: 2px; background: var(--accent); }
+  h1 { margin: 4px 0 0; font-size: 28px; font-weight: 700; letter-spacing: -.02em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .chip { font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: var(--warn-soft); color: var(--warn); }
+  button {
+    font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+    padding: 8px 14px; border-radius: 10px; border: 1px solid var(--border);
+    background: var(--surface); color: var(--text); transition: background .15s;
+  }
+  button:hover { background: var(--surface-2); }
+  button:focus-visible { outline: 2px solid var(--chart); outline-offset: 2px; }
+  button.danger { color: var(--down); }
+
+  .progress { height: 3px; background: var(--border); border-radius: 3px; margin: 20px 0 24px; overflow: hidden; }
+  .progress > div { height: 100%; width: 0; background: var(--chart); opacity: .7; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
+  .card h2 { margin: 0 0 14px; font-size: 14px; font-weight: 600; }
+  .pad { padding: 20px; }
+
+  /* Status hero */
+  .hero { display: flex; align-items: center; gap: 16px; padding: 20px 22px; margin-bottom: 16px; transition: background .3s, border-color .3s; }
+  .hero .icon { flex: none; width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; background: var(--surface-2); color: var(--muted); }
+  .hero.up { background: linear-gradient(0deg, var(--ok-soft), var(--ok-soft)), var(--surface); border-color: color-mix(in srgb, var(--ok) 30%, var(--border)); }
+  .hero.up .icon { background: var(--ok); color: #fff; }
+  .hero.slow { background: linear-gradient(0deg, var(--warn-soft), var(--warn-soft)), var(--surface); border-color: color-mix(in srgb, var(--warn) 35%, var(--border)); }
+  .hero.slow .icon { background: var(--warn); color: #fff; }
+  .hero.down, .hero.maintenance { background: linear-gradient(0deg, var(--down-soft), var(--down-soft)), var(--surface); border-color: color-mix(in srgb, var(--down) 40%, var(--border)); }
+  .hero.down .icon, .hero.maintenance .icon { background: var(--down); color: #fff; }
+  .hero .title { font-size: 19px; font-weight: 700; letter-spacing: -.01em; }
+  .hero .sub { font-size: 13px; color: var(--muted); }
+  .hero .sub code { font-family: var(--mono); font-size: 12px; }
+
+  /* KPIs */
+  .kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 16px; }
+  .kpi .k { font-size: 12px; font-weight: 500; color: var(--muted); }
+  .kpi .v { font-family: var(--mono); font-size: 30px; font-weight: 600; letter-spacing: -.02em; line-height: 1.2; font-variant-numeric: tabular-nums; }
+  .kpi .v small { font-size: 14px; font-weight: 400; color: var(--muted); margin-left: 3px; }
+  .kpi .hint { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+  /* Chart */
+  .chart-head { display: flex; justify-content: space-between; align-items: baseline; }
+  .chart-head span { font-size: 12px; color: var(--muted); }
+  .chart { width: 100%; height: 120px; display: block; }
+  .ticks { display: flex; gap: 3px; margin-top: 12px; }
+  .ticks i { flex: 1; height: 22px; border-radius: 3px; background: var(--surface-2); }
+  .ticks i.up { background: var(--ok); opacity: .75; }
+  .ticks i.slow { background: var(--warn); }
+  .ticks i.down, .ticks i.maintenance { background: var(--down); }
+  .ticks-legend { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-top: 6px; }
+
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
+
+  /* Guardrails */
+  .guards { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+  .guards li { display: grid; grid-template-columns: 22px 1fr; gap: 10px; }
+  .guards .check { width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center; background: var(--ok-soft); color: var(--ok); }
+  .guards b { display: block; font-size: 14px; font-weight: 600; }
+  .guards span { font-size: 12.5px; color: var(--muted); }
+
+  /* Incidents */
+  .incidents { list-style: none; margin: 0; padding: 0; max-height: 300px; overflow-y: auto; }
+  .incidents li { position: relative; padding: 0 0 14px 22px; }
+  .incidents li::before { content: ""; position: absolute; left: 5px; top: 7px; width: 9px; height: 9px; border-radius: 50%; background: var(--muted); }
+  .incidents li::after { content: ""; position: absolute; left: 9px; top: 20px; bottom: 0; width: 1px; background: var(--border); }
+  .incidents li:last-child::after { display: none; }
+  .incidents li.up::before { background: var(--ok); }
+  .incidents li.slow::before { background: var(--warn); }
+  .incidents li.down::before, .incidents li.maintenance::before { background: var(--down); }
+  .incidents time { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+  .incidents .msg { font-size: 14px; font-weight: 500; }
+  .incidents .empty { padding-left: 0; color: var(--muted); font-size: 14px; }
+  .incidents .empty::before, .incidents .empty::after { display: none; }
+
+  footer { margin-top: 28px; font-size: 12px; color: var(--muted); text-align: center; }
+  footer code { font-family: var(--mono); }
+
+  @media (max-width: 720px) {
+    .kpis { grid-template-columns: 1fr 1fr; }
+    .kpis .kpi:first-child { grid-column: span 2; }
+    .two { grid-template-columns: 1fr; }
+    h1 { font-size: 24px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <div class="eyebrow"><span class="aws"></span><span id="regionLabel">AWS</span></div>
+      <h1>Service Health</h1>
+    </div>
+    <div class="controls">
+      <span class="chip" id="demoChip" hidden>Demo mode · simulated data</span>
+      <button id="simulate" type="button" class="danger" hidden>Simulate outage</button>
+      <button id="checkNow" type="button">Check now</button>
+      <button id="pause" type="button">Pause</button>
+    </div>
+  </header>
+
+  <div class="progress" aria-hidden="true"><div id="bar"></div></div>
+
+  <section class="card hero" id="hero" aria-live="polite">
+    <div class="icon" id="heroIcon" aria-hidden="true"></div>
+    <div>
+      <div class="title" id="heroTitle">Checking service…</div>
+      <div class="sub" id="heroSub">Lambda + DynamoDB</div>
+    </div>
+  </section>
+
+  <section class="kpis">
+    <div class="card pad kpi"><div class="k">Latency</div><div class="v" id="latency">—</div><div class="hint" id="latencyHint">&nbsp;</div></div>
+    <div class="card pad kpi"><div class="k">Uptime (this session)</div><div class="v" id="uptime">—</div><div class="hint" id="uptimeHint">&nbsp;</div></div>
+    <div class="card pad kpi"><div class="k">Visits</div><div class="v" id="visits">—</div><div class="hint">stored in DynamoDB</div></div>
+  </section>
+
+  <section class="card pad">
+    <div class="chart-head"><h2>Response time</h2><span id="chartScale"></span></div>
+    <svg class="chart" id="chart" viewBox="0 0 600 120" preserveAspectRatio="none" role="img" aria-label="Response time for recent checks"></svg>
+    <div class="ticks" id="ticks" aria-label="Result of recent checks"></div>
+    <div class="ticks-legend"><span id="ticksOldest">older</span><span>now</span></div>
+  </section>
+
+  <div class="two">
+    <section class="card pad">
+      <h2>Guardrails</h2>
+      <ul class="guards" id="guards"></ul>
+    </section>
+    <section class="card pad">
+      <h2>Incidents</h2>
+      <ol class="incidents" id="incidents"><li class="empty">No incidents this session.</li></ol>
+    </section>
+  </div>
+
+  <footer>Polled from your browser every <span id="intervalLabel"></span>s · <code id="endpointLabel"></code></footer>
+</div>
+
+<script src="config.js"></script>
+<script>
+(() => {
+  const CFG = window.STATUS_CONFIG || null;
+  const DEMO = !CFG || new URLSearchParams(location.search).has("demo");
+  const ENDPOINT = CFG && CFG.endpoint;
+  const INTERVAL_MS = (CFG && CFG.intervalMs) || 5000;
+  const TIMEOUT_MS = (CFG && CFG.timeoutMs) || 8000;
+  const SLOW_MS = 1500;
+  const HISTORY = 40;
+
+  const GUARDRAILS = [
+    ["Outage alerting", "5xx responses → CloudWatch alarm → SNS email"],
+    ["Kill switch", "SSM parameter flips the API to 503 without a deploy"],
+    ["Cost budget", "$1/month AWS Budget with actual + forecast alerts"],
+    ["Capped database", "DynamoDB at 1 RCU / 1 WCU throttles instead of billing"],
+    ["Least-privilege IAM", "Lambda can update one table and read one parameter"],
+    ["Log retention", "CloudWatch logs expire after 7 days"],
+  ];
+
+  const ICONS = {
+    up: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+    slow: '<path d="M12 7v6M12 17h.01"/>',
+    down: '<path d="M7 7l10 10M17 7L7 17"/>',
+    maintenance: '<path d="M7 7l10 10M17 7L7 17"/>',
+    pending: '<circle cx="12" cy="12" r="1.5"/>',
+  };
+  const TITLES = {
+    pending: "Checking service…",
+    up: "All systems operational",
+    slow: "Degraded performance",
+    down: "Service outage",
+    maintenance: "Service outage · kill switch on",
+  };
+
+  const state = {
+    status: "pending", history: [], ok: 0, total: 0, latency: null, visits: null,
+    version: null, region: (CFG && CFG.region) || "us-east-2", lastChecked: null,
+    outageStart: null, simulatedDown: false, demoVisits: 1200 + Math.floor(Math.random() * 300),
+  };
+
+  const $ = id => document.getElementById(id);
+  const fmtTime = d => d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const svgIcon = s => `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">${ICONS[s]}</svg>`;
+
+  // ---------- Rendering ----------
+  function renderHero() {
+    const s = state.status;
+    $("hero").className = "card hero " + s;
+    $("heroIcon").innerHTML = svgIcon(s);
+    $("heroTitle").textContent = TITLES[s];
+    const parts = ["Lambda + DynamoDB"];
+    if (state.version) parts.push(`version <code>${state.version}</code>`);
+    if (state.lastChecked) parts.push("last checked " + fmtTime(state.lastChecked));
+    $("heroSub").innerHTML = parts.join(" · ");
+    $("regionLabel").textContent = "AWS · " + state.region;
+  }
+
+  function renderKpis() {
+    const lat = state.history.filter(h => h.latency != null).map(h => h.latency);
+    $("latency").innerHTML = state.latency == null ? "—" : `${state.latency}<small>ms</small>`;
+    $("latencyHint").textContent = lat.length ? `avg ${Math.round(lat.reduce((a, b) => a + b, 0) / lat.length)} ms · max ${Math.max(...lat)} ms` : " ";
+    $("uptime").innerHTML = state.total ? `${((state.ok / state.total) * 100).toFixed(state.ok === state.total ? 0 : 1)}<small>%</small>` : "—";
+    $("uptimeHint").textContent = state.total ? `${state.ok} of ${state.total} checks healthy` : " ";
+    $("visits").textContent = state.visits == null ? "—" : state.visits.toLocaleString();
+  }
+
+  function renderChart() {
+    const pts = state.history;
+    const lat = pts.filter(p => p.latency != null).map(p => p.latency);
+    const max = Math.max(200, ...lat) * 1.15;
+    const step = 600 / (HISTORY - 1);
+    const offset = HISTORY - pts.length;
+    let line = "", area = "", fails = "", seg = [];
+    const flush = () => {
+      if (!seg.length) return;
+      const d = seg.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" L");
+      line += "M" + d;
+      area += `M${seg[0][0].toFixed(1)},120 L${d} L${seg[seg.length - 1][0].toFixed(1)},120 Z`;
+      seg = [];
+    };
+    pts.forEach((p, i) => {
+      const x = (offset + i) * step;
+      if (p.latency == null) { flush(); fails += `<rect x="${(x - step / 2).toFixed(1)}" y="0" width="${step.toFixed(1)}" height="120" fill="var(--down)" opacity=".10"/>`; }
+      else seg.push([x, 114 - (p.latency / max) * 104]);
+    });
+    flush();
+    const grid = [0.25, 0.5, 0.75].map(f => `<line x1="0" x2="600" y1="${(114 - f * 104).toFixed(1)}" y2="${(114 - f * 104).toFixed(1)}" stroke="var(--border)" stroke-width="1" vector-effect="non-scaling-stroke"/>`).join("");
+    $("chart").innerHTML = grid + fails +
+      `<path d="${area}" fill="var(--chart)" opacity=".10"/>` +
+      `<path d="${line}" fill="none" stroke="var(--chart)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>`;
+    $("chartScale").textContent = `scale 0–${Math.round(max)} ms`;
+
+    const ticks = [];
+    for (let i = 0; i < HISTORY; i++) {
+      const p = pts[i - offset];
+      ticks.push(p ? `<i class="${p.status}" title="${fmtTime(p.t)} · ${p.latency == null ? "failed" : p.latency + " ms"}"></i>` : "<i></i>");
+    }
+    $("ticks").innerHTML = ticks.join("");
+    $("ticksOldest").textContent = `${HISTORY} checks ago`;
+  }
+
+  const incidents = [];
+  function addIncident(status, msg) {
+    incidents.unshift({ t: new Date(), status, msg });
+    incidents.length = Math.min(incidents.length, 30);
+    $("incidents").innerHTML = incidents.map(e =>
+      `<li class="${e.status}"><time>${fmtTime(e.t)}</time><div class="msg">${e.msg}</div></li>`).join("");
+  }
+
+  function onTransition(prev, next) {
+    const bad = s => s === "down" || s === "maintenance";
+    if (prev === "pending") {
+      if (next !== "up") addIncident(next, TITLES[next]);
+      if (bad(next)) state.outageStart = Date.now();
+      return;
+    }
+    if (bad(next) && !bad(prev)) {
+      state.outageStart = Date.now();
+      addIncident(next, next === "maintenance" ? "Outage: API returning 503 (kill switch on)" : "Outage: API not responding");
+    } else if (next === "slow") {
+      addIncident("slow", `Degraded: response took ${state.latency} ms`);
+    } else if (next === "up") {
+      if (bad(prev)) {
+        const secs = Math.round((Date.now() - state.outageStart) / 1000);
+        addIncident("up", `Recovered after ${secs}s`);
+      } else {
+        addIncident("up", "Performance back to normal");
+      }
+    }
+  }
+
+  // ---------- Checks ----------
+  async function simulate() {
+    const cold = state.total === 0;
+    const ms = cold ? 600 + Math.random() * 700 : 55 + Math.random() * 70 + (Math.random() < .05 ? 350 : 0);
+    await sleep(ms);
+    const base = { region: state.region, version: "a1b2c3d" };
+    if (state.simulatedDown) return { httpStatus: 503, body: { ...base, status: "maintenance" } };
+    return { httpStatus: 200, body: { ...base, status: "ok", visits: ++state.demoVisits } };
+  }
+
+  async function fetchHealth() {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
+    try {
+      const res = await fetch(ENDPOINT, { cache: "no-store", signal: ctrl.signal });
+      let body = {};
+      try { body = await res.json(); } catch { /* non-JSON error page */ }
+      return { httpStatus: res.status, body };
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  async function check() {
+    const t0 = performance.now();
+    let next, latency = null;
+    try {
+      const { httpStatus, body } = await (DEMO ? simulate() : fetchHealth());
+      latency = Math.round(performance.now() - t0);
+      if (body.version) state.version = body.version;
+      if (body.region) state.region = body.region;
+      if (httpStatus === 200) {
+        state.visits = body.visits ?? state.visits;
+        next = latency > SLOW_MS ? "slow" : "up";
+      } else {
+        next = body.status === "maintenance" ? "maintenance" : "down";
+      }
+    } catch {
+      next = "down";
+    }
+    const healthy = next === "up" || next === "slow";
+    state.latency = healthy ? latency : null;
+    state.total++;
+    if (healthy) state.ok++;
+    state.lastChecked = new Date();
+    state.history.push({ t: state.lastChecked, latency: healthy ? latency : null, status: next });
+    if (state.history.length > HISTORY) state.history.shift();
+    if (next !== state.status) onTransition(state.status, next);
+    state.status = next;
+    renderHero(); renderKpis(); renderChart();
+  }
+
+  // ---------- Loop ----------
+  let paused = false, timer = null, running = false;
+
+  function animateBar() {
+    const bar = $("bar");
+    bar.style.transition = "none";
+    bar.style.width = "0";
+    bar.getBoundingClientRect();
+    bar.style.transition = `width ${INTERVAL_MS}ms linear`;
+    bar.style.width = "100%";
+  }
+
+  async function tick() {
+    clearTimeout(timer);
+    if (running) return;
+    running = true;
+    await check();
+    running = false;
+    if (!paused) { animateBar(); timer = setTimeout(tick, INTERVAL_MS); }
+  }
+
+  // ---------- Boot ----------
+  $("guards").innerHTML = GUARDRAILS.map(([title, desc]) =>
+    `<li><div class="check" aria-hidden="true"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div><div><b>${title}</b><span>${desc}</span></div></li>`).join("");
+  $("intervalLabel").textContent = INTERVAL_MS / 1000;
+  $("endpointLabel").textContent = DEMO ? "simulated endpoint" : new URL(ENDPOINT).host;
+  $("demoChip").hidden = !DEMO;
+  $("simulate").hidden = !DEMO;
+  $("simulate").addEventListener("click", () => {
+    state.simulatedDown = !state.simulatedDown;
+    $("simulate").textContent = state.simulatedDown ? "Restore service" : "Simulate outage";
+    tick();
+  });
+  $("checkNow").addEventListener("click", tick);
+  $("pause").addEventListener("click", () => {
+    paused = !paused;
+    $("pause").textContent = paused ? "Resume" : "Pause";
+    if (paused) { clearTimeout(timer); const b = $("bar"); b.style.transition = "none"; b.style.width = "0"; }
+    else tick();
+  });
+  renderHero(); renderChart();
+  tick();
+})();
+</script>
+</body>
+</html>

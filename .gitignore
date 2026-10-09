@@ -1,0 +1,13 @@
+# Terraform
+infra/.terraform/
+infra/build/
+infra/tfplan
+*.tfstate
+*.tfstate.*
+infra/terraform.tfvars
+
+# OS / editor
+.DS_Store
+
+# Local tooling
+.claude/
